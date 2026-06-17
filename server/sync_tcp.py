@@ -1,15 +1,31 @@
 import logging
 import socket 
+import traceback
+from core.resp import readArrayString
+from core.eval import evalAndRespond
+from core.cmd import RedisCmd
 
 logger = logging.getLogger()
 
 def read_command(data: bytes):
-    if "COMMAND" in data.decode('utf-8'):
-    # Respond with an empty RESP Array ('*0\r\n') telling the CLI there are 0 commands available.
-    # This satisfies the CLI's parsing checks without crashing it.
-        return "*0\r\n"
+    v,e = readArrayString(data)
+    if v and not e:
+        return RedisCmd(v[0], v[1:]), None
+    if e:
+        return None, e
     
-    return data.decode('utf-8')
+    return None, Exception('Valid command not found')
+
+    
+def respond(cmd: RedisCmd, tcp_conn: socket):
+    err = evalAndRespond(cmd, tcp_conn)
+    if err: 
+        respondError(err, tcp_conn)
+
+def respondError(error: Exception | str, tcp_conn: socket.socket):
+    e = str(error) if isinstance(error, str) else error
+    tcp_conn.sendall(f"-{e}\r\n".encode('utf-8'))
+
 
 
 
@@ -33,14 +49,13 @@ def run_tcp_sync_server(host, port):
 
                     logger.info(f"connected to client: {addr} connection clients {conn_clients}")
                     while True: 
-                        data = read_command(client.recv(1024))
+                        data, e = read_command(client.recv(1024))
                         if not data:
                             break
-
-                        logger.debug(f"received:  {data}")
-                        client.sendall(data.encode('utf-8'))
+                        
+                        respond(data, client)
             except Exception as e:
-                logger.error(e)
+                logger.error(traceback.format_exc())
                 logger.error(f"Client disconnect {addr}")
             finally:
                 conn_clients-=1

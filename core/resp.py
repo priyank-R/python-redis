@@ -33,7 +33,7 @@ def readLength(data: bytes) -> tuple[int, int, Exception | None]:
 
     return len, pos + 2, None
 
-def readArray(data: bytes) -> tuple[str, int, Exception | None]:
+def readArray(data: bytes) -> tuple[list[object], int, Exception | None]:
     """ 
         Eg. *3\r\n$3\r\nhey\r\n$3\r\nmey\r\n$3\r\nnay\r\n\r\n
         Represents ['hey','mey','nay']
@@ -52,6 +52,20 @@ def readArray(data: bytes) -> tuple[str, int, Exception | None]:
     
     return arr, pos, None
 
+def readArrayString(data: bytes)-> tuple[list[str], int, Exception | None]:
+    v, e = decode(data)
+    print(v)
+
+    if isinstance(v, list):
+        for index, value in enumerate(v):
+            v[index] = str(value)
+    else:
+        if e:
+            return None, e
+        else:
+            return None, Exception('decoded value is not an array')
+
+    return v, None
 
 def readInt64(data: bytes) -> tuple[int, int, Exception | None]:
     value, delta, error = readSimpleString(data)
@@ -88,5 +102,5 @@ def decode(data: bytes) -> tuple(object, Exception | None):
     if len(data) == 0:
         return None, Exception("No data")
 
-    value, _, error = decodeOne()
+    value, _, error = decodeOne(data)
     return value, error
