@@ -1,0 +1,37 @@
+{
+  "name": "Python 3.14.3 (stdlib only)",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "remoteUser": "vscode",
+
+  // Dev Containers overrides CMD/ENTRYPOINT to keep the container running
+  // as a shell, so this only affects interactive development, not
+  // `docker run` of the built image.
+  "overrideCommand": true,
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.debugpy"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python3",
+        "python.terminal.activateEnvironment": false,
+        "editor.formatOnSave": false,
+        "files.exclude": {
+          "**/__pycache__": true
+        }
+      }
+    }
+  },
+
+  // Forwards the port your app listens on (8000) so you can hit it from
+  // a browser on your host, e.g. http://localhost:8000. Update this if
+  // you run main.py with a different port.
+  "forwardPorts": [8000],
+
+  "postCreateCommand": "python3 --version"
+}
