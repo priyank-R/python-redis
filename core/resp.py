@@ -98,7 +98,7 @@ def decodeOne(data: bytes) -> tuple[object, int, Exception | None]:
     return None, 0, None
 
 
-def decode(data: bytes) -> tuple(object, Exception | None):
+def decode(data: bytes) -> tuple[object, Exception | None]:
     if len(data) == 0:
         return None, Exception("No data")
 

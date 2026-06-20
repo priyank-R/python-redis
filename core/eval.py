@@ -15,12 +15,13 @@ def Encode(o: object, isSimple: bool) -> list[bytes]:
         
     return bytearray()
 
+PONG_RESPONSE = b"+PONG\r\n"
 def evalPING(args: list[str], client: socket.socket):
     if len(args) >= 2:
         return Exception("ERR wrong number of arguments for 'ping' command")
     
     if len(args) == 0:
-        b = Encode("PONG", True)
+        b = PONG_RESPONSE
     else:
         b = Encode(args[0], False)
     try: 
