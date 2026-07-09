@@ -15,4 +15,19 @@ def Put(key: str, obj: NewObj)->None:
 def Get(key)->NewObj | None:
     return store.get(key, None)
 
+def Delete(key)->bool:
+    if store.get(key):
+        del store[key]
+        return True
+    return False
+
+def Expire(key, expiryMs)->int:
+    value = Get(key)
+    if value and value.expiryMs > datetime.now().timestamp() * 1000:
+        # update the expiry 
+        value.expiryMs = datetime.now().timestamp() * 1000 + expiryMs
+        return 1
+    return 0
+    
+
 

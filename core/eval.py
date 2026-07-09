@@ -5,7 +5,7 @@ from datetime import datetime
 
 from core.errors import ERRORS
 from core.cmd import RedisCmd
-from core.store import Put, NewObj, Get
+from core.store import NewObj, Put, Get, Delete, Expire
 
 logger = logging.getLogger()
 
@@ -105,7 +105,31 @@ def evalTTL(args: list[str], client: socket.socket):
     client.sendall(Encode(int(durationMs // 1000), False))
     return None
 
+def evalDEL(args: list[str], client: socket.socket):
+    if len(args) == 0:
+        return Exception(ERRORS.DEL_WRONG_ARGS)
+    deleted_keys = 0
+    for arg in args:
+        if Delete(arg):
+            deleted_keys+=1
+    
+    client.sendall(Encode(deleted_keys, False))
+    return None
 
+def evalEXPIRE(args: list[str], client: socket.socket): 
+    if len(args) < 2: 
+        return Exception(ERRORS.EXPIRE_WRONG_ARGS)
+    
+    try:
+        key = args[0]
+        expiryMs = int(args[1]) * 1000
+    except:
+        return Exception(ERRORS.SYNTAX_ERROR)
+    
+    expired = Expire(key, expiryMs)
+    client.sendall(Encode(expired, False))
+    return None 
+    
 def evalAndRespond(cmd: RedisCmd, client: socket.socket) -> Exception | None:
     command = cmd.cmd
     args = cmd.args
@@ -120,5 +144,10 @@ def evalAndRespond(cmd: RedisCmd, client: socket.socket) -> Exception | None:
         return evalSET(args,client)
     if command.upper() == 'TTL':
         return evalTTL(args,client)
+    if command.upper() == 'DEL':
+        return evalDEL(args,client)
+    if command.upper() == 'EXPIRE':
+        return evalEXPIRE(args,client)
+    
     
     evalPING([], client)
