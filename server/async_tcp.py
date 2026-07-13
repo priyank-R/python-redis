@@ -1,12 +1,15 @@
 import select
 import socket
 import logging
+from datetime import datetime, timedelta
+from core.eval import ExpireSample
 from server.processing import read_command, respond, respondError
 
 logger = logging.getLogger()
 
 BACKLOG = 128
 RECV_BUFFER = 4096
+CRON_INTERVAL_SECONDS = 1
 
 def RunAsyncTcpServer(host = '0.0.0.0', port = 7379):
     """
@@ -18,6 +21,7 @@ def RunAsyncTcpServer(host = '0.0.0.0', port = 7379):
     4. If the event is not matching the listening socket FD, it's a read data event coming from one of the clients.
         4.1 Read the incoming data, pass it to the read command, send a response. 
     """
+    last_execution_cron_time = datetime.now()
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listening_socket:
         listening_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -32,6 +36,15 @@ def RunAsyncTcpServer(host = '0.0.0.0', port = 7379):
         conn_clients = 0
         try:
             while True:
+
+                if datetime.now() >= last_execution_cron_time + timedelta(seconds=1):
+                    logger.info("Deleting expired keys...")
+                    while True:
+                        if ExpireSample() <= 0.25:
+                            break
+                    last_execution_cron_time = datetime.now()
+                    
+
                 events = epoll.poll(None, 10)
                 for event in events:
                     fd, event_mask = event

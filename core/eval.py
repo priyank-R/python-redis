@@ -5,7 +5,7 @@ from datetime import datetime
 
 from core.errors import ERRORS
 from core.cmd import RedisCmd
-from core.store import Put, NewObj, Get
+from core.store import NewObj,store, Put, Get, Delete, Expire
 
 logger = logging.getLogger()
 
@@ -48,6 +48,7 @@ def evalGET(args: list[str], client: socket.socket):
         return None
     
     if obj.expiryMs != -1 and obj.expiryMs < datetime.now().timestamp() * 1000:
+        Delete(args[0])
         client.sendall(RESPNIL)
         return None
     
@@ -99,13 +100,65 @@ def evalTTL(args: list[str], client: socket.socket):
     
     durationMs = obj.expiryMs - (datetime.now().timestamp() * 1000)
     if durationMs < 0:
+        Delete(args[0])
         client.sendall(":-2\r\n".encode())
         return None
     
     client.sendall(Encode(int(durationMs // 1000), False))
     return None
 
+def evalDEL(args: list[str], client: socket.socket):
+    if len(args) == 0:
+        return Exception(ERRORS.DEL_WRONG_ARGS)
+    deleted_keys = 0
+    for arg in args:
+        if Delete(arg):
+            deleted_keys+=1
+    
+    client.sendall(Encode(deleted_keys, False))
+    return None
 
+def evalEXPIRE(args: list[str], client: socket.socket): 
+    if len(args) < 2: 
+        return Exception(ERRORS.EXPIRE_WRONG_ARGS)
+    
+    try:
+        key = args[0]
+        expiryMs = int(args[1]) * 1000
+    except:
+        return Exception(ERRORS.SYNTAX_ERROR)
+    
+    expired = Expire(key, expiryMs)
+    client.sendall(Encode(expired, False))
+    return None
+
+
+def ExpireSample():
+    """
+        1. Iterate through the keys from the dictionary
+        2. If a key is expired, delete it and count it.
+        3. Run the loop until 20 keys are touched. 
+        4. Return the percentage of the keys that were expired (i.e. deleted) from 20. 
+    """
+
+    limit = 20
+    keys_to_delete = []
+
+    for key, value in store.items():
+        if value.expiryMs != -1:
+            limit-=1
+            if value.expiryMs <= datetime.now().timestamp() * 1000: 
+                keys_to_delete.append(key)
+            
+
+        if limit == 0:
+            break
+    
+    for key in keys_to_delete:
+        Delete(key)
+
+    return float(len(keys_to_delete) / 20)
+    
 def evalAndRespond(cmd: RedisCmd, client: socket.socket) -> Exception | None:
     command = cmd.cmd
     args = cmd.args
@@ -120,5 +173,10 @@ def evalAndRespond(cmd: RedisCmd, client: socket.socket) -> Exception | None:
         return evalSET(args,client)
     if command.upper() == 'TTL':
         return evalTTL(args,client)
+    if command.upper() == 'DEL':
+        return evalDEL(args,client)
+    if command.upper() == 'EXPIRE':
+        return evalEXPIRE(args,client)
+    
     
     evalPING([], client)
